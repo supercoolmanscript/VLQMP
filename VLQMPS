@@ -3,67 +3,82 @@ local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Lighting = game:GetService("Lighting")
 
-if player.PlayerGui:FindFirstChild("VLQMPS_V20") then
-    player.PlayerGui.VLQMPS_V20:Destroy()
+-- Cleanup
+for _, old in pairs(player.PlayerGui:GetChildren()) do
+    if old.Name:find("VLQMPS") then old:Destroy() end
 end
 
 local success, err = pcall(function()
     ------------------------------------------------
-    -- MASTER CONFIG
+    -- CONFIGURATION
     local cfg = {
         uiVisible = true,
-        -- Boost (Trampoline)
         boostOn = false,
         boostPwr = 100,
-        -- Head
-        headOn = false,
+        -- Head (Applied to Others)
+        othersHeadOn = false,
         headScl = 2.5,
-        -- Catch
-        catchOn = false,
-        catchStr = 5,
-        catchRng = 15,
-        catchSpd = 0.15,
-        -- Fling (Directional)
+        -- AutoCatch
+        autoCatchOn = false,
+        autoCatchRng = 12,
+        ballTpOn = false,
+        ballTpRng = 15,
+        resizerOn = false,
+        resizerStr = 5,
+        -- Fling
         flingOn = false,
         flingPwr = 125,
         flingKey = Enum.KeyCode.F,
-        
+        -- Gravity
+        gravOn = false,
+        gravVal = 196.2,
+        -- Misc
+        perfOn = false,
         accent = Color3.fromRGB(0, 255, 150),
         bg = Color3.fromRGB(10, 10, 10),
         sec = Color3.fromRGB(25, 25, 25)
     }
 
     ------------------------------------------------
-    -- UI FRAMEWORK
+    -- UI (VLQMPS BETTER BOOSTS)
     local gui = Instance.new("ScreenGui", player.PlayerGui)
-    gui.Name = "VLQMPS_V20"
+    gui.Name = "VLQMPS_V27"
     gui.ResetOnSpawn = false
 
     local main = Instance.new("Frame", gui)
-    main.Size = UDim2.new(0, 480, 0, 380)
-    main.Position = UDim2.new(0.5, -240, 0.5, -190)
+    main.Size = UDim2.new(0, 500, 0, 420)
+    main.Position = UDim2.new(0.5, -250, 0.5, -210)
     main.BackgroundColor3 = cfg.bg
     main.Active, main.Draggable = true, true
     Instance.new("UICorner", main)
     Instance.new("UIStroke", main).Color = cfg.accent
 
+    local label = Instance.new("TextLabel", main)
+    label.Size = UDim2.new(1, 0, 0, 35)
+    label.BackgroundTransparency = 1
+    label.Text = "VLQMPS BETTER BOOSTS"
+    label.TextColor3 = cfg.accent
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 16
+
     local sidebar = Instance.new("Frame", main)
-    sidebar.Size = UDim2.new(0, 120, 1, 0)
+    sidebar.Size = UDim2.new(0, 120, 1, -35)
+    sidebar.Position = UDim2.new(0, 0, 0, 35)
     sidebar.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
     Instance.new("UICorner", sidebar)
 
     local container = Instance.new("Frame", main)
-    container.Size = UDim2.new(1, -135, 1, -10)
-    container.Position = UDim2.new(0, 130, 0, 5)
+    container.Size = UDim2.new(1, -135, 1, -45)
+    container.Position = UDim2.new(0, 130, 0, 40)
     container.BackgroundTransparency = 1
 
     local pages, tabs = {}, {}
     local function createTab(name, id)
         local btn = Instance.new("TextButton", sidebar)
-        btn.Size = UDim2.new(1, 0, 0, 40)
+        btn.Size = UDim2.new(1, 0, 0, 35)
         btn.BackgroundTransparency = 1
         btn.Text, btn.TextColor3 = name:upper(), Color3.fromRGB(130, 130, 130)
-        btn.Font, btn.TextSize = Enum.Font.GothamBold, 11
+        btn.Font, btn.TextSize = Enum.Font.GothamBold, 10
         Instance.new("UIListLayout", sidebar).Padding = UDim.new(0, 2)
 
         local pg = Instance.new("ScrollingFrame", container)
@@ -108,117 +123,144 @@ local success, err = pcall(function()
 
     local p_boost = createTab("Boost", 1)
     local p_head  = createTab("Head", 2)
-    local p_catch = createTab("Catch", 3)
+    local p_catch = createTab("AutoCatch", 3)
     local p_fling = createTab("Fling", 4)
-    local p_misc  = createTab("Misc", 5)
+    local p_grav  = createTab("Gravity", 5)
+    local p_misc  = createTab("Misc", 6)
     pages[1].Visible, tabs[1].TextColor3 = true, cfg.accent
 
     ------------------------------------------------
-    -- CORE LOGIC
+    -- REBUILT LOGIC ENGINE
     RunService.RenderStepped:Connect(function()
         local char = player.Character
         if not char then return end
         local root = char:FindFirstChild("HumanoidRootPart")
         if not root then return end
 
-        -- 1. TRAMPOLINE BOOST (Waist & Down Logic)
+        -- 1. BALL SEARCH
+        local ball = nil
+        for _, v in pairs(workspace:GetDescendants()) do
+            if v:IsA("BasePart") and (v.Name:lower():find("ball") or v.Name:lower():find("football")) then
+                ball = v break
+            end
+        end
+
+        -- 2. TRAMPOLINE BOOST
         if cfg.boostOn then
-            for _, p in pairs(game.Players:GetPlayers()) do
-                if p ~= player and p.Character and p.Character:FindFirstChild("Head") then
-                    local targetHead = p.Character.Head
-                    local dist = (root.Position - targetHead.Position).Magnitude
-                    
-                    -- Check if player is above the target head and within 4 studs
-                    if dist < 4 and root.Position.Y > targetHead.Position.Y then
+            for _, op in pairs(game.Players:GetPlayers()) do
+                if op ~= player and op.Character and op.Character:FindFirstChild("Head") then
+                    local h = op.Character.Head
+                    if (root.Position - h.Position).Magnitude < 5 and root.Position.Y > h.Position.Y then
                         root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, cfg.boostPwr, root.AssemblyLinearVelocity.Z)
                     end
                 end
             end
         end
 
-        -- 2. HEAD SIZE
-        local head = char:FindFirstChild("Head")
-        if head then
-            local mesh = head:FindFirstChildOfClass("SpecialMesh")
-            if cfg.headOn then
-                head.Size = Vector3.new(cfg.headScl, cfg.headScl, cfg.headScl)
-                if mesh then mesh.Scale = Vector3.new(cfg.headScl, cfg.headScl, cfg.headScl) end
-            else
-                head.Size = Vector3.new(1.2, 1.2, 1.2)
-                if mesh then mesh.Scale = Vector3.new(1, 1, 1) end
-            end
-        end
-
-        -- 3. AUTO CATCH RESIZE
-        local targetSize = Vector3.new(1,1,1)
-        if cfg.catchOn then
-            for _, v in pairs(workspace:GetDescendants()) do
-                if v:IsA("BasePart") and (v.Name == "Football" or v.Name == "Ball") then
-                    if (root.Position - v.Position).Magnitude < cfg.catchRng then
-                        targetSize = Vector3.new(cfg.catchStr, cfg.catchStr, cfg.catchStr)
-                    end
+        -- 3. GLOBAL HEAD SIZE (Applied to everyone BUT me)
+        if cfg.othersHeadOn then
+            for _, op in pairs(game.Players:GetPlayers()) do
+                if op ~= player and op.Character and op.Character:FindFirstChild("Head") then
+                    local head = op.Character.Head
+                    head.Size = Vector3.new(cfg.headScl, cfg.headScl, cfg.headScl)
+                    head.CanCollide = true
+                    local m = head:FindFirstChildOfClass("SpecialMesh")
+                    if m then m.Scale = Vector3.new(cfg.headScl, cfg.headScl, cfg.headScl) end
                 end
             end
         end
-        for _, n in pairs({"LeftHand", "RightHand", "LeftLowerArm", "RightLowerArm"}) do
-            local p = char:FindFirstChild(n)
-            if p then 
-                p.Size = p.Size:Lerp(targetSize, cfg.catchSpd)
-                p.CanCollide = false 
+
+        -- 4. AUTOCATCH & BALL TP TO ME
+        if ball then
+            local dist = (root.Position - ball.Position).Magnitude
+            if cfg.ballTpOn and dist < cfg.ballTpRng then
+                ball.CFrame = root.CFrame * CFrame.new(0, 0, -2)
+                ball.AssemblyLinearVelocity = Vector3.new(0,0,0)
+            end
+            if cfg.autoCatchOn and dist < cfg.autoCatchRng then
+                firetouchinterest(root, ball, 0)
+                firetouchinterest(root, ball, 1)
+                local tool = char:FindFirstChildOfClass("Tool")
+                if tool then tool:Activate() end
+            end
+        end
+
+        -- 5. VISUAL RESIZER
+        if cfg.resizerOn then
+            local sz = (ball and (root.Position - ball.Position).Magnitude < 15) and Vector3.new(cfg.resizerStr, cfg.resizerStr, cfg.resizerStr) or Vector3.new(1,1,1)
+            for _, p in pairs(char:GetChildren()) do
+                if p.Name:find("Hand") or p.Name:find("Arm") then p.Size = sz end
+            end
+        end
+
+        -- 6. GRAVITY
+        workspace.Gravity = cfg.gravOn and cfg.gravVal or 196.2
+
+        -- 7. PERFORMANCE (TEXTURE & GRASS KILLER)
+        if cfg.perfOn then
+            Lighting.GlobalShadows = false
+            for _, v in pairs(workspace:GetDescendants()) do
+                if v:IsA("BasePart") and v.Material ~= Enum.Material.SmoothPlastic then
+                    v.Material = Enum.Material.SmoothPlastic
+                elseif v:IsA("Texture") or v:IsA("Decal") then
+                    v:Destroy()
+                end
+            end
+            if workspace:FindFirstChildOfClass("Terrain") then
+                workspace.Terrain.Decoration = false
             end
         end
     end)
 
     ------------------------------------------------
-    -- TAB CONTENT MAPPING
+    -- TABS & INPUTS
     createToggle(p_boost, "Trampoline Boost", false, function(v) cfg.boostOn = v end)
-    createInput(p_boost, "Jump Power (100)", function(v) cfg.boostPwr = tonumber(v) or 100 end)
+    createInput(p_boost, "Boost Power (100)", function(v) cfg.boostPwr = tonumber(v) or 100 end)
 
-    createToggle(p_head, "Big Head", false, function(v) cfg.headOn = v end)
-    createInput(p_head, "Size (2.5)", function(v) cfg.headScl = tonumber(v) or 2.5 end)
+    createToggle(p_head, "Big Head (Others Only)", false, function(v) cfg.othersHeadOn = v end)
+    createInput(p_head, "Head Size (2.5)", function(v) cfg.headScl = tonumber(v) or 2.5 end)
 
-    createToggle(p_catch, "Auto Catch Resizer", false, function(v) cfg.catchOn = v end)
-    createInput(p_catch, "Size (5)", function(v) cfg.catchStr = tonumber(v) or 5 end)
-    createInput(p_catch, "Range (15)", function(v) cfg.catchRng = tonumber(v) or 15 end)
+    createToggle(p_catch, "Auto Catch (Touch)", false, function(v) cfg.autoCatchOn = v end)
+    createInput(p_catch, "Catch Range", function(v) cfg.autoCatchRng = tonumber(v) or 12 end)
+    createToggle(p_catch, "Ball TP To Me", false, function(v) cfg.ballTpOn = v end)
+    createInput(p_catch, "TP Range", function(v) cfg.ballTpRng = tonumber(v) or 15 end)
+    createToggle(p_catch, "Visual Resizer", false, function(v) cfg.resizerOn = v end)
 
     createToggle(p_fling, "Fling Enabled", false, function(v) cfg.flingOn = v end)
-    createInput(p_fling, "Fling Force (125)", function(v) cfg.flingPwr = tonumber(v) or 125 end)
+    createInput(p_fling, "Fling Force", function(v) cfg.flingPwr = tonumber(v) or 125 end)
     local fBtn = Instance.new("TextButton", p_fling)
     fBtn.Size, fBtn.BackgroundColor3 = UDim2.new(1, -10, 0, 35), cfg.sec
-    fBtn.Text, fBtn.TextColor3, fBtn.Font = "Bind: " .. cfg.flingKey.Name, Color3.new(1,1,1), Enum.Font.Gotham
+    fBtn.Text = "Bind: " .. cfg.flingKey.Name
+    fBtn.TextColor3, fBtn.Font = Color3.new(1,1,1), Enum.Font.Gotham
     Instance.new("UICorner", fBtn)
     local listen = false
     fBtn.MouseButton1Click:Connect(function() listen, fBtn.Text = true, "..." end)
 
-    createToggle(p_misc, "Performance", false, function(v) Lighting.GlobalShadows = not v end)
+    createToggle(p_grav, "Gravity Mod", false, function(v) cfg.gravOn = v end)
+    createInput(p_grav, "Value", function(v) cfg.gravVal = tonumber(v) or 196.2 end)
+
+    createToggle(p_misc, "Performance (Smooth Mode)", false, function(v) cfg.perfOn = v end)
 
     ------------------------------------------------
-    -- MOVEMENT DIRECTIONAL FLING
-    UIS.InputBegan:Connect(function(input, gp)
+    -- INPUT HANDLER
+    UIS.InputBegan:Connect(function(i, gp)
         if gp then return end
-        if input.KeyCode == Enum.KeyCode.Insert or input.KeyCode == Enum.KeyCode.DPadLeft then
+        if i.KeyCode == Enum.KeyCode.Insert or i.KeyCode == Enum.KeyCode.DPadLeft then
             cfg.uiVisible = not cfg.uiVisible
             main.Visible = cfg.uiVisible
         end
         if listen then
-            cfg.flingKey = input.KeyCode
-            fBtn.Text = "Bind: " .. input.KeyCode.Name
+            cfg.flingKey = i.KeyCode
+            fBtn.Text = "Bind: " .. i.KeyCode.Name
             listen = false
             return
         end
-        
-        -- MOVEMENT-BASED FLING LOGIC
-        if input.KeyCode == cfg.flingKey and cfg.flingOn then
-            local char = player.Character
-            local hum = char and char:FindFirstChild("Humanoid")
-            local r = char and char:FindFirstChild("HumanoidRootPart")
-            if r and hum then
-                -- Get MoveDirection (where the player is actually walking)
-                local moveDir = hum.MoveDirection
-                -- If standing still, use LookVector. If moving, use MoveDirection.
-                local finalDir = moveDir.Magnitude > 0 and moveDir or r.CFrame.LookVector
-                
-                r.AssemblyLinearVelocity = finalDir * (cfg.flingPwr * 6)
+        if i.KeyCode == cfg.flingKey and cfg.flingOn then
+            local r = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+            local h = player.Character and player.Character:FindFirstChild("Humanoid")
+            if r and h then
+                local d = h.MoveDirection.Magnitude > 0 and h.MoveDirection or r.CFrame.LookVector
+                r.AssemblyLinearVelocity = d * (cfg.flingPwr * 7)
             end
         end
     end)
