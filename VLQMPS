@@ -1,303 +1,225 @@
 local player = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
-local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local Lighting = game:GetService("Lighting")
-local TweenService = game:GetService("TweenService")
 
-pcall(function()
+if player.PlayerGui:FindFirstChild("VLQMPS_V20") then
+    player.PlayerGui.VLQMPS_V20:Destroy()
+end
+
+local success, err = pcall(function()
     ------------------------------------------------
-    -- STATES & SETTINGS
-    local autoBoost = false
-    local headEnabled = false
-    local flingOn = false
-    local gravityOn = false
-    local uiVisible = true
-    local perfBoost = false
-
-    local boostPower = 80
-    local headScale = 2.5
-    local flingPower = 120
-    local gravityValue = 196.2
-    local flingKey = Enum.KeyCode.F
-    
-    local accentColor = Color3.fromRGB(0, 170, 255)
-    local bgColor = Color3.fromRGB(25, 25, 25)
-    local sectionColor = Color3.fromRGB(35, 35, 35)
+    -- MASTER CONFIG
+    local cfg = {
+        uiVisible = true,
+        -- Boost (Trampoline)
+        boostOn = false,
+        boostPwr = 100,
+        -- Head
+        headOn = false,
+        headScl = 2.5,
+        -- Catch
+        catchOn = false,
+        catchStr = 5,
+        catchRng = 15,
+        catchSpd = 0.15,
+        -- Fling (Directional)
+        flingOn = false,
+        flingPwr = 125,
+        flingKey = Enum.KeyCode.F,
+        
+        accent = Color3.fromRGB(0, 255, 150),
+        bg = Color3.fromRGB(10, 10, 10),
+        sec = Color3.fromRGB(25, 25, 25)
+    }
 
     ------------------------------------------------
-    -- CORE UI SETUP
-    local gui = Instance.new("ScreenGui")
-    gui.Name = "VLQMPS_Professional"
+    -- UI FRAMEWORK
+    local gui = Instance.new("ScreenGui", player.PlayerGui)
+    gui.Name = "VLQMPS_V20"
     gui.ResetOnSpawn = false
-    gui.Parent = player:WaitForChild("PlayerGui")
 
-    local main = Instance.new("Frame")
-    main.Size = UDim2.new(0, 450, 0, 320)
-    main.Position = UDim2.new(0.5, -225, 0.5, -160)
-    main.BackgroundColor3 = bgColor
-    main.BorderSizePixel = 0
-    main.Active = true
-    main.Draggable = true
-    main.Parent = gui
+    local main = Instance.new("Frame", gui)
+    main.Size = UDim2.new(0, 480, 0, 380)
+    main.Position = UDim2.new(0.5, -240, 0.5, -190)
+    main.BackgroundColor3 = cfg.bg
+    main.Active, main.Draggable = true, true
+    Instance.new("UICorner", main)
+    Instance.new("UIStroke", main).Color = cfg.accent
 
-    Instance.new("UICorner", main).CornerRadius = UDim.new(0, 10)
-    local stroke = Instance.new("UIStroke", main)
-    stroke.Thickness = 2
-    stroke.Color = accentColor
-    stroke.Transparency = 0.4
-
-    -- Sidebar Layout
     local sidebar = Instance.new("Frame", main)
-    sidebar.Size = UDim2.new(0, 130, 1, 0)
-    sidebar.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
-    sidebar.BorderSizePixel = 0
-    Instance.new("UICorner", sidebar).CornerRadius = UDim.new(0, 10)
-
-    local title = Instance.new("TextLabel", sidebar)
-    title.Size = UDim2.new(1, 0, 0, 50)
-    title.Text = "VLQMPS"
-    title.TextColor3 = accentColor
-    title.Font = Enum.Font.GothamBold
-    title.TextSize = 20
-    title.BackgroundTransparency = 1
+    sidebar.Size = UDim2.new(0, 120, 1, 0)
+    sidebar.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
+    Instance.new("UICorner", sidebar)
 
     local container = Instance.new("Frame", main)
-    container.Size = UDim2.new(1, -145, 1, -20)
-    container.Position = UDim2.new(0, 140, 0, 10)
+    container.Size = UDim2.new(1, -135, 1, -10)
+    container.Position = UDim2.new(0, 130, 0, 5)
     container.BackgroundTransparency = 1
 
-    ------------------------------------------------
-    -- TAB SYSTEM
-    local pages = {}
-    local tabs = {}
-    local list = Instance.new("UIListLayout", sidebar)
-    list.Padding = UDim.new(0, 5)
-    list.HorizontalAlignment = Enum.HorizontalAlignment.Center
-
+    local pages, tabs = {}, {}
     local function createTab(name, id)
         local btn = Instance.new("TextButton", sidebar)
-        btn.Size = UDim2.new(0.9, 0, 0, 35)
+        btn.Size = UDim2.new(1, 0, 0, 40)
         btn.BackgroundTransparency = 1
-        btn.Text = name:sub(1,1):upper()..name:sub(2):lower()
-        btn.TextColor3 = Color3.fromRGB(180, 180, 180)
-        btn.Font = Enum.Font.Gotham
-        btn.TextSize = 14
+        btn.Text, btn.TextColor3 = name:upper(), Color3.fromRGB(130, 130, 130)
+        btn.Font, btn.TextSize = Enum.Font.GothamBold, 11
+        Instance.new("UIListLayout", sidebar).Padding = UDim.new(0, 2)
 
         local pg = Instance.new("ScrollingFrame", container)
-        pg.Size = UDim2.new(1, 0, 1, 0)
-        pg.BackgroundTransparency = 1
-        pg.Visible = false
-        pg.ScrollBarThickness = 0
-        pg.CanvasSize = UDim2.new(0, 0, 0, 0)
+        pg.Size, pg.BackgroundTransparency = UDim2.new(1, 0, 1, 0), 1
+        pg.Visible, pg.ScrollBarThickness = false, 0
         pg.AutomaticCanvasSize = Enum.AutomaticSize.Y
-        
-        local layout = Instance.new("UIListLayout", pg)
-        layout.Padding = UDim.new(0, 8)
+        Instance.new("UIListLayout", pg).Padding = UDim.new(0, 8)
 
         btn.MouseButton1Click:Connect(function()
             for _, p in pairs(pages) do p.Visible = false end
-            for _, t in pairs(tabs) do t.TextColor3 = Color3.fromRGB(180, 180, 180) end
-            pg.Visible = true
-            btn.TextColor3 = accentColor
+            for _, t in pairs(tabs) do t.TextColor3 = Color3.fromRGB(130, 130, 130) end
+            pg.Visible, btn.TextColor3 = true, cfg.accent
         end)
-
-        tabs[id] = btn
-        pages[id] = pg
+        tabs[id], pages[id] = btn, pg
         return pg
     end
 
-    local p1 = createTab("Boost", 1)
-    local p2 = createTab("Head", 2)
-    local p3 = createTab("Fling", 3)
-    local p4 = createTab("Gravity", 4)
-    local p5 = createTab("Misc", 5)
-    
-    pages[1].Visible = true
-    tabs[1].TextColor3 = accentColor
-
-    ------------------------------------------------
-    -- UI COMPONENTS
-    local function createToggle(parent, text, callback)
+    local function createToggle(parent, text, default, callback)
         local btn = Instance.new("TextButton", parent)
-        btn.Size = UDim2.new(1, -5, 0, 38)
-        btn.BackgroundColor3 = sectionColor
-        btn.Text = text .. ": OFF"
-        btn.TextColor3 = Color3.new(1, 1, 1)
+        btn.Size, btn.BackgroundColor3 = UDim2.new(1, -10, 0, 35), cfg.sec
+        local state = default
+        btn.Text = text .. ": " .. (state and "ON" or "OFF")
+        btn.TextColor3 = state and cfg.accent or Color3.new(1,1,1)
         btn.Font = Enum.Font.Gotham
-        btn.TextSize = 13
         Instance.new("UICorner", btn)
-        
-        local state = false
         btn.MouseButton1Click:Connect(function()
             state = not state
             btn.Text = text .. ": " .. (state and "ON" or "OFF")
-            btn.TextColor3 = state and accentColor or Color3.new(1,1,1)
+            btn.TextColor3 = state and cfg.accent or Color3.new(1,1,1)
             callback(state)
         end)
-        return btn
     end
 
     local function createInput(parent, placeholder, callback)
         local box = Instance.new("TextBox", parent)
-        box.Size = UDim2.new(1, -5, 0, 38)
-        box.BackgroundColor3 = sectionColor
-        box.PlaceholderText = placeholder
-        box.PlaceholderColor3 = Color3.fromRGB(100, 100, 100)
-        box.Text = ""
-        box.TextColor3 = Color3.new(1, 1, 1)
-        box.Font = Enum.Font.Gotham
-        box.TextSize = 13
+        box.Size, box.BackgroundColor3 = UDim2.new(1, -10, 0, 35), cfg.sec
+        box.PlaceholderText, box.Text = placeholder, ""
+        box.TextColor3, box.Font = Color3.new(1,1,1), Enum.Font.Gotham
         Instance.new("UICorner", box)
-        
-        box.FocusLost:Connect(function()
-            callback(box.Text)
-        end)
+        box.FocusLost:Connect(function() callback(box.Text) end)
     end
+
+    local p_boost = createTab("Boost", 1)
+    local p_head  = createTab("Head", 2)
+    local p_catch = createTab("Catch", 3)
+    local p_fling = createTab("Fling", 4)
+    local p_misc  = createTab("Misc", 5)
+    pages[1].Visible, tabs[1].TextColor3 = true, cfg.accent
 
     ------------------------------------------------
-    -- CORE LOGIC IMPLEMENTATION
+    -- CORE LOGIC
+    RunService.RenderStepped:Connect(function()
+        local char = player.Character
+        if not char then return end
+        local root = char:FindFirstChild("HumanoidRootPart")
+        if not root then return end
 
-    -- 1. HEAD SCALE LOGIC
-    local function updateHeads()
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= player and p.Character then
-                local head = p.Character:FindFirstChild("Head")
-                if head and head:IsA("BasePart") then
-                    head.Size = headEnabled and Vector3.new(headScale, headScale, headScale) or Vector3.new(2, 2, 2)
-                    head.CanCollide = true -- Ensure collision works for boosting
-                end
-            end
-        end
-    end
-
-    -- 2. AUTOBOOST LOGIC
-    local function setupBoost(char)
-        local root = char:WaitForChild("HumanoidRootPart")
-        for _, part in pairs(char:GetChildren()) do
-            if part:IsA("BasePart") and (part.Name:find("Foot") or part.Name:find("Leg") or part.Name:find("Torso")) then
-                part.Touched:Connect(function(hit)
-                    if autoBoost and hit.Name == "Head" and hit.Parent ~= char then
-                        root:ApplyImpulse(Vector3.new(0, boostPower * root.AssemblyMass, 0))
+        -- 1. TRAMPOLINE BOOST (Waist & Down Logic)
+        if cfg.boostOn then
+            for _, p in pairs(game.Players:GetPlayers()) do
+                if p ~= player and p.Character and p.Character:FindFirstChild("Head") then
+                    local targetHead = p.Character.Head
+                    local dist = (root.Position - targetHead.Position).Magnitude
+                    
+                    -- Check if player is above the target head and within 4 studs
+                    if dist < 4 and root.Position.Y > targetHead.Position.Y then
+                        root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, cfg.boostPwr, root.AssemblyLinearVelocity.Z)
                     end
-                end)
-            end
-        end
-    end
-
-    -- 3. PERFORMANCE LOGIC
-    local function setPerf(v)
-        perfBoost = v
-        if v then
-            settings().Rendering.QualityLevel = 1
-            Lighting.GlobalShadows = false
-            for _, obj in pairs(workspace:GetDescendants()) do
-                if obj:IsA("BasePart") then
-                    obj.Material = Enum.Material.SmoothPlastic
-                elseif obj:IsA("Texture") or obj:IsA("Decal") then
-                    obj.Transparency = 1
                 end
             end
-        else
-            Lighting.GlobalShadows = true
-            -- Note: Textures remain transparent to prevent massive lag during reversal
         end
-    end
+
+        -- 2. HEAD SIZE
+        local head = char:FindFirstChild("Head")
+        if head then
+            local mesh = head:FindFirstChildOfClass("SpecialMesh")
+            if cfg.headOn then
+                head.Size = Vector3.new(cfg.headScl, cfg.headScl, cfg.headScl)
+                if mesh then mesh.Scale = Vector3.new(cfg.headScl, cfg.headScl, cfg.headScl) end
+            else
+                head.Size = Vector3.new(1.2, 1.2, 1.2)
+                if mesh then mesh.Scale = Vector3.new(1, 1, 1) end
+            end
+        end
+
+        -- 3. AUTO CATCH RESIZE
+        local targetSize = Vector3.new(1,1,1)
+        if cfg.catchOn then
+            for _, v in pairs(workspace:GetDescendants()) do
+                if v:IsA("BasePart") and (v.Name == "Football" or v.Name == "Ball") then
+                    if (root.Position - v.Position).Magnitude < cfg.catchRng then
+                        targetSize = Vector3.new(cfg.catchStr, cfg.catchStr, cfg.catchStr)
+                    end
+                end
+            end
+        end
+        for _, n in pairs({"LeftHand", "RightHand", "LeftLowerArm", "RightLowerArm"}) do
+            local p = char:FindFirstChild(n)
+            if p then 
+                p.Size = p.Size:Lerp(targetSize, cfg.catchSpd)
+                p.CanCollide = false 
+            end
+        end
+    end)
 
     ------------------------------------------------
-    -- BUTTON CONNECTIONS
+    -- TAB CONTENT MAPPING
+    createToggle(p_boost, "Trampoline Boost", false, function(v) cfg.boostOn = v end)
+    createInput(p_boost, "Jump Power (100)", function(v) cfg.boostPwr = tonumber(v) or 100 end)
 
-    -- Boost Tab
-    createToggle(p1, "Auto Boost", function(v) autoBoost = v end)
-    createInput(p1, "Boost Power (80)", function(v) if tonumber(v) then boostPower = tonumber(v) end end)
+    createToggle(p_head, "Big Head", false, function(v) cfg.headOn = v end)
+    createInput(p_head, "Size (2.5)", function(v) cfg.headScl = tonumber(v) or 2.5 end)
 
-    -- Head Tab
-    createToggle(p2, "Big Head", function(v) headEnabled = v updateHeads() end)
-    createInput(p2, "Head Size (2.5)", function(v) if tonumber(v) then headScale = tonumber(v) updateHeads() end end)
+    createToggle(p_catch, "Auto Catch Resizer", false, function(v) cfg.catchOn = v end)
+    createInput(p_catch, "Size (5)", function(v) cfg.catchStr = tonumber(v) or 5 end)
+    createInput(p_catch, "Range (15)", function(v) cfg.catchRng = tonumber(v) or 15 end)
 
-    -- Fling Tab
-    createToggle(p3, "Fling Enabled", function(v) flingOn = v end)
-    createInput(p3, "Fling Power (120)", function(v) if tonumber(v) then flingPower = tonumber(v) end end)
-    
-    local kbBtn = Instance.new("TextButton", p3)
-    kbBtn.Size = UDim2.new(1, -5, 0, 38)
-    kbBtn.BackgroundColor3 = sectionColor
-    kbBtn.Text = "Key: " .. flingKey.Name
-    kbBtn.TextColor3 = Color3.new(1, 1, 1)
-    kbBtn.Font = Enum.Font.Gotham
-    Instance.new("UICorner", kbBtn)
-    
-    local listening = false
-    kbBtn.MouseButton1Click:Connect(function()
-        listening = true
-        kbBtn.Text = "Press Key..."
-    end)
+    createToggle(p_fling, "Fling Enabled", false, function(v) cfg.flingOn = v end)
+    createInput(p_fling, "Fling Force (125)", function(v) cfg.flingPwr = tonumber(v) or 125 end)
+    local fBtn = Instance.new("TextButton", p_fling)
+    fBtn.Size, fBtn.BackgroundColor3 = UDim2.new(1, -10, 0, 35), cfg.sec
+    fBtn.Text, fBtn.TextColor3, fBtn.Font = "Bind: " .. cfg.flingKey.Name, Color3.new(1,1,1), Enum.Font.Gotham
+    Instance.new("UICorner", fBtn)
+    local listen = false
+    fBtn.MouseButton1Click:Connect(function() listen, fBtn.Text = true, "..." end)
 
-    -- Gravity Tab
-    createToggle(p4, "Custom Gravity", function(v) 
-        gravityOn = v 
-        workspace.Gravity = v and gravityValue or 196.2 
-    end)
-    createInput(p4, "Gravity (196.2)", function(v) 
-        if tonumber(v) then 
-            gravityValue = tonumber(v) 
-            if gravityOn then workspace.Gravity = gravityValue end
-        end 
-    end)
-
-    -- Misc Tab
-    createToggle(p5, "Perf Boost", setPerf)
-    
-    local closeBtn = Instance.new("TextButton", p5)
-    closeBtn.Size = UDim2.new(1, -5, 0, 38)
-    closeBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
-    closeBtn.Text = "Close Script"
-    closeBtn.TextColor3 = Color3.new(1, 1, 1)
-    closeBtn.Font = Enum.Font.Gotham
-    Instance.new("UICorner", closeBtn)
-    closeBtn.MouseButton1Click:Connect(function() gui:Destroy() end)
+    createToggle(p_misc, "Performance", false, function(v) Lighting.GlobalShadows = not v end)
 
     ------------------------------------------------
-    -- INPUT & LOOP HANDLERS
-    
+    -- MOVEMENT DIRECTIONAL FLING
     UIS.InputBegan:Connect(function(input, gp)
         if gp then return end
-        
-        if listening then
-            if input.KeyCode ~= Enum.KeyCode.Unknown then
-                flingKey = input.KeyCode
-                kbBtn.Text = "Key: " .. flingKey.Name
-                listening = false
-            end
+        if input.KeyCode == Enum.KeyCode.Insert or input.KeyCode == Enum.KeyCode.DPadLeft then
+            cfg.uiVisible = not cfg.uiVisible
+            main.Visible = cfg.uiVisible
+        end
+        if listen then
+            cfg.flingKey = input.KeyCode
+            fBtn.Text = "Bind: " .. input.KeyCode.Name
+            listen = false
             return
         end
-
-        -- Toggle UI (Insert or DPadLeft)
-        if input.KeyCode == Enum.KeyCode.Insert or input.KeyCode == Enum.KeyCode.DPadLeft then
-            uiVisible = not uiVisible
-            main.Visible = uiVisible
-        end
-
-        -- Fling Logic
-        if input.KeyCode == flingKey and flingOn then
+        
+        -- MOVEMENT-BASED FLING LOGIC
+        if input.KeyCode == cfg.flingKey and cfg.flingOn then
             local char = player.Character
-            local root = char and char:FindFirstChild("HumanoidRootPart")
-            if root then
-                local vel = root.AssemblyLinearVelocity
-                local dir = (Vector3.new(vel.X, 0, vel.Z).Magnitude < 2) and root.CFrame.LookVector or vel.Unit
-                root:ApplyImpulse(Vector3.new(dir.X * flingPower * 60, flingPower * 55, dir.Z * flingPower * 60))
+            local hum = char and char:FindFirstChild("Humanoid")
+            local r = char and char:FindFirstChild("HumanoidRootPart")
+            if r and hum then
+                -- Get MoveDirection (where the player is actually walking)
+                local moveDir = hum.MoveDirection
+                -- If standing still, use LookVector. If moving, use MoveDirection.
+                local finalDir = moveDir.Magnitude > 0 and moveDir or r.CFrame.LookVector
+                
+                r.AssemblyLinearVelocity = finalDir * (cfg.flingPwr * 6)
             end
         end
     end)
-
-    -- Initialization
-    if player.Character then setupBoost(player.Character) end
-    player.CharacterAdded:Connect(setupBoost)
-    
-    -- Keep Big Heads active for new players
-    task.spawn(function()
-        while task.wait(5) do
-            if headEnabled then updateHeads() end
-        end
-    end)
-
 end)
