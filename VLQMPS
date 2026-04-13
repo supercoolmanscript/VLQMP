@@ -1,31 +1,31 @@
 local player = game.Players.LocalPlayer
 local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
-local Lighting = game:GetService("Lighting")
 
--- Cleanup
+-- Cleanup old instances
 for _, old in pairs(player.PlayerGui:GetChildren()) do
     if old.Name:find("VLQMPS") then old:Destroy() end
 end
 
 local success, err = pcall(function()
     ------------------------------------------------
-    -- CONFIGURATION
+    -- MASTER CONFIGURATION
     local cfg = {
         uiVisible = true,
+        uiToggleKey = Enum.KeyCode.Insert,
+        -- Boost
         boostOn = false,
         boostPwr = 100,
-        -- Head (Applied to Others)
+        -- Head
         othersHeadOn = false,
         headScl = 2.5,
-        -- AutoCatch
+        -- Sticky
+        stickyOn = false,
+        stickyMaxTime = 0.3, 
+        -- Catch (Refined for Spamming)
         autoCatchOn = false,
         autoCatchRng = 12,
-        ballTpOn = false,
-        ballTpRng = 15,
-        resizerOn = false,
-        resizerStr = 5,
-        -- Fling
+        -- Rocket
         flingOn = false,
         flingPwr = 125,
         flingKey = Enum.KeyCode.F,
@@ -34,32 +34,39 @@ local success, err = pcall(function()
         gravVal = 196.2,
         -- Misc
         perfOn = false,
+        -- Theme
         accent = Color3.fromRGB(0, 255, 150),
-        bg = Color3.fromRGB(10, 10, 10),
+        bg = Color3.fromRGB(12, 12, 12),
         sec = Color3.fromRGB(25, 25, 25)
     }
 
+    local stickTarget = nil
+    local stickyTick = 0
+    local stickyCooldown = false
+
     ------------------------------------------------
-    -- UI (VLQMPS BETTER BOOSTS)
+    -- UI CONSTRUCTION
     local gui = Instance.new("ScreenGui", player.PlayerGui)
-    gui.Name = "VLQMPS_V27"
+    gui.Name = "VLQMPS_V47"
     gui.ResetOnSpawn = false
 
     local main = Instance.new("Frame", gui)
-    main.Size = UDim2.new(0, 500, 0, 420)
-    main.Position = UDim2.new(0.5, -250, 0.5, -210)
+    main.Size = UDim2.new(0, 500, 0, 350)
+    main.Position = UDim2.new(0.5, -250, 0.5, -175)
     main.BackgroundColor3 = cfg.bg
-    main.Active, main.Draggable = true, true
+    main.BorderSizePixel = 0
+    main.Active = true
+    main.Draggable = true 
     Instance.new("UICorner", main)
     Instance.new("UIStroke", main).Color = cfg.accent
 
-    local label = Instance.new("TextLabel", main)
-    label.Size = UDim2.new(1, 0, 0, 35)
-    label.BackgroundTransparency = 1
-    label.Text = "VLQMPS BETTER BOOSTS"
-    label.TextColor3 = cfg.accent
-    label.Font = Enum.Font.GothamBold
-    label.TextSize = 16
+    local title = Instance.new("TextLabel", main)
+    title.Size = UDim2.new(1, 0, 0, 35)
+    title.BackgroundTransparency = 1
+    title.Text = "VLQMPS BETTER BOOSTS"
+    title.TextColor3 = cfg.accent
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 14
 
     local sidebar = Instance.new("Frame", main)
     sidebar.Size = UDim2.new(0, 120, 1, -35)
@@ -77,15 +84,17 @@ local success, err = pcall(function()
         local btn = Instance.new("TextButton", sidebar)
         btn.Size = UDim2.new(1, 0, 0, 35)
         btn.BackgroundTransparency = 1
-        btn.Text, btn.TextColor3 = name:upper(), Color3.fromRGB(130, 130, 130)
-        btn.Font, btn.TextSize = Enum.Font.GothamBold, 10
-        Instance.new("UIListLayout", sidebar).Padding = UDim.new(0, 2)
+        btn.Text = name:upper()
+        btn.TextColor3 = Color3.fromRGB(130, 130, 130)
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 10
+        Instance.new("UIListLayout", sidebar)
 
         local pg = Instance.new("ScrollingFrame", container)
         pg.Size, pg.BackgroundTransparency = UDim2.new(1, 0, 1, 0), 1
         pg.Visible, pg.ScrollBarThickness = false, 0
         pg.AutomaticCanvasSize = Enum.AutomaticSize.Y
-        Instance.new("UIListLayout", pg).Padding = UDim.new(0, 8)
+        Instance.new("UIListLayout", pg).Padding = UDim.new(0, 6)
 
         btn.MouseButton1Click:Connect(function()
             for _, p in pairs(pages) do p.Visible = false end
@@ -96,172 +105,170 @@ local success, err = pcall(function()
         return pg
     end
 
-    local function createToggle(parent, text, default, callback)
+    local function createToggle(parent, text, var, callback)
         local btn = Instance.new("TextButton", parent)
-        btn.Size, btn.BackgroundColor3 = UDim2.new(1, -10, 0, 35), cfg.sec
-        local state = default
-        btn.Text = text .. ": " .. (state and "ON" or "OFF")
-        btn.TextColor3 = state and cfg.accent or Color3.new(1,1,1)
-        btn.Font = Enum.Font.Gotham
+        btn.Size, btn.BackgroundColor3 = UDim2.new(1, -10, 0, 32), cfg.sec
+        btn.Text = text .. ": " .. (cfg[var] and "ON" or "OFF")
+        btn.TextColor3 = cfg[var] and cfg.accent or Color3.new(1,1,1)
+        btn.Font, btn.TextSize = Enum.Font.Gotham, 12
         Instance.new("UICorner", btn)
         btn.MouseButton1Click:Connect(function()
-            state = not state
-            btn.Text = text .. ": " .. (state and "ON" or "OFF")
-            btn.TextColor3 = state and cfg.accent or Color3.new(1,1,1)
-            callback(state)
+            cfg[var] = not cfg[var]
+            btn.Text = text .. ": " .. (cfg[var] and "ON" or "OFF")
+            btn.TextColor3 = cfg[var] and cfg.accent or Color3.new(1,1,1)
+            if callback then callback(cfg[var]) end
         end)
     end
 
     local function createInput(parent, placeholder, callback)
         local box = Instance.new("TextBox", parent)
-        box.Size, box.BackgroundColor3 = UDim2.new(1, -10, 0, 35), cfg.sec
+        box.Size, box.BackgroundColor3 = UDim2.new(1, -10, 0, 32), cfg.sec
         box.PlaceholderText, box.Text = placeholder, ""
-        box.TextColor3, box.Font = Color3.new(1,1,1), Enum.Font.Gotham
+        box.TextColor3, box.Font, box.TextSize = Color3.new(1,1,1), Enum.Font.Gotham, 12
         Instance.new("UICorner", box)
         box.FocusLost:Connect(function() callback(box.Text) end)
     end
 
-    local p_boost = createTab("Boost", 1)
-    local p_head  = createTab("Head", 2)
-    local p_catch = createTab("AutoCatch", 3)
-    local p_fling = createTab("Fling", 4)
-    local p_grav  = createTab("Gravity", 5)
-    local p_misc  = createTab("Misc", 6)
+    -- Tab Setup
+    local p_boost  = createTab("Boost", 1)
+    local p_sticky = createTab("Sticky", 2)
+    local p_head   = createTab("Head", 3)
+    local p_catch  = createTab("Catch", 4)
+    local p_rocket = createTab("Rocket", 5)
+    local p_grav   = createTab("Gravity", 6)
+    local p_misc   = createTab("Misc", 7)
     pages[1].Visible, tabs[1].TextColor3 = true, cfg.accent
 
     ------------------------------------------------
-    -- REBUILT LOGIC ENGINE
-    RunService.RenderStepped:Connect(function()
+    -- ENGINE LOGIC
+    RunService.Heartbeat:Connect(function()
         local char = player.Character
-        if not char then return end
-        local root = char:FindFirstChild("HumanoidRootPart")
-        if not root then return end
+        if not char or not char:FindFirstChild("HumanoidRootPart") then stickTarget = nil return end
+        local root = char.HumanoidRootPart
 
-        -- 1. BALL SEARCH
-        local ball = nil
-        for _, v in pairs(workspace:GetDescendants()) do
-            if v:IsA("BasePart") and (v.Name:lower():find("ball") or v.Name:lower():find("football")) then
-                ball = v break
-            end
-        end
-
-        -- 2. TRAMPOLINE BOOST
+        -- 1. AUTO BOOST (Optimized)
         if cfg.boostOn then
             for _, op in pairs(game.Players:GetPlayers()) do
                 if op ~= player and op.Character and op.Character:FindFirstChild("Head") then
-                    local h = op.Character.Head
-                    if (root.Position - h.Position).Magnitude < 5 and root.Position.Y > h.Position.Y then
+                    local targetHead = op.Character.Head
+                    local dist = (root.Position - targetHead.Position).Magnitude
+                    if dist < 5 and root.Position.Y > (targetHead.Position.Y + 1) then
                         root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, cfg.boostPwr, root.AssemblyLinearVelocity.Z)
                     end
                 end
             end
         end
 
-        -- 3. GLOBAL HEAD SIZE (Applied to everyone BUT me)
+        -- 2. STICKY LOGIC
+        if cfg.stickyOn and not stickyCooldown then
+            if not stickTarget then
+                for _, op in pairs(game.Players:GetPlayers()) do
+                    if op ~= player and op.Character and op.Character:FindFirstChild("Head") then
+                        local h = op.Character.Head
+                        if (root.Position - h.Position).Magnitude < 4 and root.Position.Y > h.Position.Y then
+                            stickTarget = h
+                            stickyTick = tick()
+                        end
+                    end
+                end
+            else
+                local pos = stickTarget.Position + Vector3.new(0, 2.7, 0)
+                root.CFrame = root.CFrame:Lerp(CFrame.new(pos, pos + root.CFrame.LookVector), 0.35)
+                if (tick() - stickyTick) >= cfg.stickyMaxTime then
+                    stickTarget = nil
+                    stickyCooldown = true
+                    task.delay(0.7, function() stickyCooldown = false end)
+                end
+            end
+        else stickTarget = nil end
+
+        -- 3. AUTO CATCH (Simulated Click/Spam)
+        if cfg.autoCatchOn then
+            local ball = nil
+            for _, v in pairs(workspace:GetDescendants()) do
+                if v:IsA("BasePart") and (v.Name:lower():find("ball") or v.Name:lower():find("football")) then
+                    ball = v break
+                end
+            end
+            if ball then
+                local dist = (root.Position - ball.Position).Magnitude
+                if dist < cfg.autoCatchRng then
+                    -- Simulates tool activation (spamming click)
+                    local tool = char:FindFirstChildOfClass("Tool")
+                    if tool then
+                        tool:Activate()
+                    end
+                    -- Proximity catch trigger
+                    firetouchinterest(root, ball, 0)
+                    firetouchinterest(root, ball, 1)
+                end
+            end
+        end
+
+        -- 4. MISC UPDATES
         if cfg.othersHeadOn then
             for _, op in pairs(game.Players:GetPlayers()) do
                 if op ~= player and op.Character and op.Character:FindFirstChild("Head") then
-                    local head = op.Character.Head
-                    head.Size = Vector3.new(cfg.headScl, cfg.headScl, cfg.headScl)
-                    head.CanCollide = true
-                    local m = head:FindFirstChildOfClass("SpecialMesh")
-                    if m then m.Scale = Vector3.new(cfg.headScl, cfg.headScl, cfg.headScl) end
+                    op.Character.Head.Size = Vector3.new(cfg.headScl, cfg.headScl, cfg.headScl)
                 end
             end
         end
-
-        -- 4. AUTOCATCH & BALL TP TO ME
-        if ball then
-            local dist = (root.Position - ball.Position).Magnitude
-            if cfg.ballTpOn and dist < cfg.ballTpRng then
-                ball.CFrame = root.CFrame * CFrame.new(0, 0, -2)
-                ball.AssemblyLinearVelocity = Vector3.new(0,0,0)
-            end
-            if cfg.autoCatchOn and dist < cfg.autoCatchRng then
-                firetouchinterest(root, ball, 0)
-                firetouchinterest(root, ball, 1)
-                local tool = char:FindFirstChildOfClass("Tool")
-                if tool then tool:Activate() end
-            end
-        end
-
-        -- 5. VISUAL RESIZER
-        if cfg.resizerOn then
-            local sz = (ball and (root.Position - ball.Position).Magnitude < 15) and Vector3.new(cfg.resizerStr, cfg.resizerStr, cfg.resizerStr) or Vector3.new(1,1,1)
-            for _, p in pairs(char:GetChildren()) do
-                if p.Name:find("Hand") or p.Name:find("Arm") then p.Size = sz end
-            end
-        end
-
-        -- 6. GRAVITY
         workspace.Gravity = cfg.gravOn and cfg.gravVal or 196.2
-
-        -- 7. PERFORMANCE (TEXTURE & GRASS KILLER)
-        if cfg.perfOn then
-            Lighting.GlobalShadows = false
-            for _, v in pairs(workspace:GetDescendants()) do
-                if v:IsA("BasePart") and v.Material ~= Enum.Material.SmoothPlastic then
-                    v.Material = Enum.Material.SmoothPlastic
-                elseif v:IsA("Texture") or v:IsA("Decal") then
-                    v:Destroy()
-                end
-            end
-            if workspace:FindFirstChildOfClass("Terrain") then
-                workspace.Terrain.Decoration = false
-            end
-        end
     end)
 
     ------------------------------------------------
-    -- TABS & INPUTS
-    createToggle(p_boost, "Trampoline Boost", false, function(v) cfg.boostOn = v end)
-    createInput(p_boost, "Boost Power (100)", function(v) cfg.boostPwr = tonumber(v) or 100 end)
+    -- CONTENT POPULATION
+    createToggle(p_boost, "Head Boost", "boostOn")
+    createInput(p_boost, "Power", function(v) cfg.boostPwr = tonumber(v) or 100 end)
 
-    createToggle(p_head, "Big Head (Others Only)", false, function(v) cfg.othersHeadOn = v end)
-    createInput(p_head, "Head Size (2.5)", function(v) cfg.headScl = tonumber(v) or 2.5 end)
+    createInput(p_sticky, "Duration (0.1-0.5)", function(v) cfg.stickyMaxTime = math.clamp(tonumber(v) or 0.3, 0.1, 0.5) end)
+    createToggle(p_sticky, "Sticky Head", "stickyOn")
 
-    createToggle(p_catch, "Auto Catch (Touch)", false, function(v) cfg.autoCatchOn = v end)
+    createToggle(p_head, "Enable Headsize", "othersHeadOn")
+    createInput(p_head, "Headsize", function(v) cfg.headScl = tonumber(v) or 2.5 end)
+
     createInput(p_catch, "Catch Range", function(v) cfg.autoCatchRng = tonumber(v) or 12 end)
-    createToggle(p_catch, "Ball TP To Me", false, function(v) cfg.ballTpOn = v end)
-    createInput(p_catch, "TP Range", function(v) cfg.ballTpRng = tonumber(v) or 15 end)
-    createToggle(p_catch, "Visual Resizer", false, function(v) cfg.resizerOn = v end)
+    createToggle(p_catch, "Auto Catch (Spam)", "autoCatchOn")
 
-    createToggle(p_fling, "Fling Enabled", false, function(v) cfg.flingOn = v end)
-    createInput(p_fling, "Fling Force", function(v) cfg.flingPwr = tonumber(v) or 125 end)
-    local fBtn = Instance.new("TextButton", p_fling)
-    fBtn.Size, fBtn.BackgroundColor3 = UDim2.new(1, -10, 0, 35), cfg.sec
-    fBtn.Text = "Bind: " .. cfg.flingKey.Name
-    fBtn.TextColor3, fBtn.Font = Color3.new(1,1,1), Enum.Font.Gotham
-    Instance.new("UICorner", fBtn)
-    local listen = false
-    fBtn.MouseButton1Click:Connect(function() listen, fBtn.Text = true, "..." end)
+    createToggle(p_rocket, "Rocket Toggle", "flingOn")
+    createInput(p_rocket, "Rocket Power", function(v) cfg.flingPwr = tonumber(v) or 125 end)
+    local rBind = Instance.new("TextButton", p_rocket)
+    rBind.Size, rBind.BackgroundColor3 = UDim2.new(1, -10, 0, 32), cfg.sec
+    rBind.Text, rBind.TextColor3 = "Rocket Key: " .. cfg.flingKey.Name, Color3.new(1,1,1)
+    rBind.Font, rBind.TextSize = Enum.Font.Gotham, 12
+    Instance.new("UICorner", rBind)
 
-    createToggle(p_grav, "Gravity Mod", false, function(v) cfg.gravOn = v end)
+    createToggle(p_grav, "Gravity Toggle", "gravOn")
     createInput(p_grav, "Value", function(v) cfg.gravVal = tonumber(v) or 196.2 end)
 
-    createToggle(p_misc, "Performance (Smooth Mode)", false, function(v) cfg.perfOn = v end)
+    createToggle(p_misc, "Performance Mode", "perfOn", function(state)
+        if state then
+            settings().Rendering.QualityLevel = 1
+            for _, v in pairs(game:GetDescendants()) do
+                if v:IsA("BasePart") then v.Material = Enum.Material.SmoothPlastic end
+            end
+        end
+    end)
+    local uBind = Instance.new("TextButton", p_misc)
+    uBind.Size, uBind.BackgroundColor3 = UDim2.new(1, -10, 0, 32), cfg.sec
+    uBind.Text, uBind.TextColor3 = "UI Toggle: " .. cfg.uiToggleKey.Name, Color3.new(1,1,1)
+    uBind.Font, uBind.TextSize = Enum.Font.Gotham, 12
+    Instance.new("UICorner", uBind)
 
     ------------------------------------------------
-    -- INPUT HANDLER
+    -- INPUTS
+    local lRocket, lUI = false, false
+    rBind.MouseButton1Click:Connect(function() lRocket = true rBind.Text = "..." end)
+    uBind.MouseButton1Click:Connect(function() lUI = true uBind.Text = "..." end)
+
     UIS.InputBegan:Connect(function(i, gp)
+        if lRocket then cfg.flingKey = i.KeyCode rBind.Text = "Rocket Key: "..i.KeyCode.Name lRocket = false return end
+        if lUI then cfg.uiToggleKey = i.KeyCode uBind.Text = "UI Toggle: "..i.KeyCode.Name lUI = false return end
         if gp then return end
-        if i.KeyCode == Enum.KeyCode.Insert or i.KeyCode == Enum.KeyCode.DPadLeft then
-            cfg.uiVisible = not cfg.uiVisible
-            main.Visible = cfg.uiVisible
-        end
-        if listen then
-            cfg.flingKey = i.KeyCode
-            fBtn.Text = "Bind: " .. i.KeyCode.Name
-            listen = false
-            return
-        end
+        if i.KeyCode == cfg.uiToggleKey then main.Visible = not main.Visible end
         if i.KeyCode == cfg.flingKey and cfg.flingOn then
             local r = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-            local h = player.Character and player.Character:FindFirstChild("Humanoid")
-            if r and h then
-                local d = h.MoveDirection.Magnitude > 0 and h.MoveDirection or r.CFrame.LookVector
-                r.AssemblyLinearVelocity = d * (cfg.flingPwr * 7)
-            end
+            if r then r.AssemblyLinearVelocity = r.CFrame.LookVector * (cfg.flingPwr * 7) end
         end
     end)
 end)
