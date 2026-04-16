@@ -2,8 +2,9 @@ local player = game:GetService("Players").LocalPlayer
 local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
+local Lighting = game:GetService("Lighting")
 
-local FILE_NAME = "VLQMPS_V60_Config.json"
+local FILE_NAME = "VLQMPS_V64_Config.json"
 
 -- 1. CLEANUP
 for _, old in pairs(player.PlayerGui:GetChildren()) do
@@ -11,16 +12,20 @@ for _, old in pairs(player.PlayerGui:GetChildren()) do
 end
 
 ------------------------------------------------
--- 2. MASTER CONFIG & AUTO-SAVE
+-- 2. MASTER CONFIG
 local cfg = {
     boostOn = false, boostPwr = 100,
     autoCatchOn = false, autoCatchRng = 12,
     headOn = false, headScl = 2.5,
-    stickyOn = false, stickyTime = 0.3,
+    -- Sticky Config from V40 Logic
+    stickyOn = false, 
+    stickyMaxTime = 0.3, 
+    stickySmooth = 0.35,
+    -- Rocket/Fling
     flingOn = false, flingPwr = 125, flingKey = "F",
+    -- Misc
     gravOn = false, gravVal = 196.2,
-    perfOn = false,
-    greyOn = false,
+    perfOn = false, greyOn = false,
     uiToggleKey = "Insert",
     accent = Color3.fromRGB(0, 255, 150),
     bg = Color3.fromRGB(12, 12, 12),
@@ -28,9 +33,7 @@ local cfg = {
 }
 
 local function save()
-    if writefile then
-        pcall(function() writefile(FILE_NAME, HttpService:JSONEncode(cfg)) end)
-    end
+    if writefile then pcall(function() writefile(FILE_NAME, HttpService:JSONEncode(cfg)) end) end
 end
 
 local function load()
@@ -42,9 +45,9 @@ end
 load()
 
 ------------------------------------------------
--- 3. UI CONSTRUCTION
+-- 3. UI ENGINE
 local gui = Instance.new("ScreenGui", player.PlayerGui)
-gui.Name = "VLQMPS_V60"
+gui.Name = "VLQMPS_V64"
 
 local main = Instance.new("Frame", gui)
 main.Size = UDim2.new(0, 500, 0, 360)
@@ -101,23 +104,31 @@ local function addToggle(p, txt, var)
     end)
 end
 
-local function addInput(p, ph, var)
+local function addInput(p, ph, var, min, max)
     local i = Instance.new("TextBox", p)
     i.Size = UDim2.new(1, -5, 0, 35); i.BackgroundColor3 = cfg.sec
     i.Text = tostring(cfg[var]); i.PlaceholderText = ph; i.TextColor3 = Color3.new(1,1,1)
     i.Font = Enum.Font.Gotham; Instance.new("UICorner", i)
-    i:GetPropertyChangedSignal("Text"):Connect(function() cfg[var] = i.Text; save() end)
+    i:GetPropertyChangedSignal("Text"):Connect(function() 
+        local val = tonumber(i.Text)
+        if val then
+            if min and max then val = math.clamp(val, min, max) end
+            cfg[var] = val
+            save() 
+        end
+    end)
 end
 
 ------------------------------------------------
--- 4. CATEGORIES
+-- 4. TABS & POPULATION
 local tHead = createTab("Head")
 addToggle(tHead, "Enable Headsize", "headOn")
 addInput(tHead, "Head Scale Value", "headScl")
 
 local tSticky = createTab("Sticky")
-addToggle(tSticky, "Sticky Head Toggle", "stickyOn")
-addInput(tSticky, "Sticky Duration (s)", "stickyTime")
+addToggle(tSticky, "Sticky Mode", "stickyOn")
+addInput(tSticky, "Duration (0.01-0.5)", "stickyMaxTime", 0.01, 0.5)
+addInput(tSticky, "Smoothness (0.1-0.5)", "stickySmooth", 0.1, 0.5)
 
 local tBoost = createTab("Boost")
 addToggle(tBoost, "Auto Head-Boost", "boostOn")
@@ -150,80 +161,90 @@ addInput(tMisc, "UI Toggle Key", "uiToggleKey")
 addToggle(tMisc, "Grey Skies", "greyOn")
 addToggle(tMisc, "Performance Booster", "perfOn")
 
--- Default Tab
 pages["Head"].Visible = true
 tabs["Head"].TextColor3 = cfg.accent
 
 ------------------------------------------------
--- 5. ENGINE LOOP
-local stickyTarget = nil
+-- 5. LOGIC ENGINE
+local stickTarget = nil
 local stickyTick = 0
+local stickyCooldown = false
 
 RunService.Heartbeat:Connect(function()
     local char = player.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
 
-    -- Grey Skies (Passive check)
+    -- GREY SKIES FIX
     if cfg.greyOn then
-        local s = game.Lighting:FindFirstChildOfClass("Sky")
-        if s then s:Destroy() end
+        for _, sky in pairs(Lighting:GetChildren()) do
+            if sky:IsA("Sky") then sky:Destroy() end
+        end
+        Lighting.EnvironmentDiffuseScale = 0
+        Lighting.EnvironmentSpecularScale = 0
     end
 
-    -- Performance
+    -- PERFORMANCE FIX
     if cfg.perfOn then
-        settings().Rendering.QualityLevel = 1
         for _, v in pairs(workspace:GetDescendants()) do
-            if v:IsA("BasePart") and v.Material ~= Enum.Material.SmoothPlastic then
-                v.Material = Enum.Material.SmoothPlastic
-            elseif v:IsA("Texture") or v:IsA("Decal") then
+            if v:IsA("Texture") or v:IsA("Decal") then
                 v:Destroy()
+            elseif v:IsA("BasePart") and v.Material ~= Enum.Material.SmoothPlastic then
+                v.Material = Enum.Material.SmoothPlastic
             end
         end
     end
 
-    -- Sticky Head Logic
-    if cfg.stickyOn then
-        if not stickyTarget then
-            for _, v in pairs(game.Players:GetPlayers()) do
-                if v ~= player and v.Character and v.Character:FindFirstChild("Head") then
-                    if (hrp.Position - v.Character.Head.Position).Magnitude < 5 then
-                        stickyTarget = v.Character.Head
+    -- V40 STICKY LOGIC (Feet to Head Snap)
+    if cfg.stickyOn and not stickyCooldown then
+        if not stickTarget then
+            for _, op in pairs(game.Players:GetPlayers()) do
+                if op ~= player and op.Character and op.Character:FindFirstChild("Head") then
+                    local head = op.Character.Head
+                    if (hrp.Position - head.Position).Magnitude < 4 and hrp.Position.Y > head.Position.Y then
+                        stickTarget = head
                         stickyTick = tick()
                     end
                 end
             end
-        elseif stickyTarget and (tick() - stickyTick) < (tonumber(cfg.stickyTime) or 0.3) then
-            hrp.CFrame = stickyTarget.CFrame * CFrame.new(0, 0.5, 0)
         else
-            stickyTarget = nil
+            local offset = Vector3.new(0, 2.7, 0)
+            hrp.CFrame = hrp.CFrame:Lerp(CFrame.new(stickTarget.Position + offset, stickTarget.Position + offset + hrp.CFrame.LookVector), cfg.stickySmooth)
+            
+            if tick() - stickyTick >= (tonumber(cfg.stickyMaxTime) or 0.3) then
+                stickTarget = nil
+                stickyCooldown = true
+                task.delay(0.7, function() stickyCooldown = false end)
+            end
         end
+    else
+        stickTarget = nil
     end
 
-    -- Boost Logic
-    if cfg.boostOn then
-        for _, v in pairs(game.Players:GetPlayers()) do
-            if v ~= player and v.Character and v.Character:FindFirstChild("Head") then
-                local head = v.Character.Head
-                if (hrp.Position - head.Position).Magnitude < 5 and hrp.Position.Y > head.Position.Y then
+    -- BOOST LOGIC
+    if cfg.boostOn and not stickTarget then
+        for _, op in pairs(game.Players:GetPlayers()) do
+            if op ~= player and op.Character and op.Character:FindFirstChild("Head") then
+                local h = op.Character.Head
+                if (hrp.Position - h.Position).Magnitude < 5 and hrp.Position.Y > h.Position.Y then
                     hrp.AssemblyLinearVelocity = Vector3.new(hrp.AssemblyLinearVelocity.X, tonumber(cfg.boostPwr) or 100, hrp.AssemblyLinearVelocity.Z)
                 end
             end
         end
     end
 
-    -- Headsize
+    -- HEAD EXPANDER
     if cfg.headOn then
-        for _, v in pairs(game.Players:GetPlayers()) do
-            if v ~= player and v.Character and v.Character:FindFirstChild("Head") then
-                v.Character.Head.Size = Vector3.new(tonumber(cfg.headScl) or 2.5, tonumber(cfg.headScl) or 2.5, tonumber(cfg.headScl) or 2.5)
+        for _, op in pairs(game.Players:GetPlayers()) do
+            if op ~= player and op.Character and op.Character:FindFirstChild("Head") then
+                op.Character.Head.Size = Vector3.new(cfg.headScl, cfg.headScl, cfg.headScl)
             end
         end
     end
 
-    workspace.Gravity = cfg.gravOn and (tonumber(cfg.gravVal) or 196.2) or 196.2
+    workspace.Gravity = cfg.gravOn and tonumber(cfg.gravVal) or 196.2
 end)
 
-UIS.InputBegan:Connect(function(k, gp)
-    if not gp and k.KeyCode.Name == cfg.uiToggleKey then main.Visible = not main.Visible end
+UIS.InputBegan:Connect(function(i, gp)
+    if not gp and i.KeyCode.Name == cfg.uiToggleKey then main.Visible = not main.Visible end
 end)
