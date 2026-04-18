@@ -12,28 +12,26 @@ for _, old in pairs(player.PlayerGui:GetChildren()) do
 end
 
 ------------------------------------------------
--- 2. MASTER CONFIG
+-- 2. MASTER CONFIG (Updated for Pink/White Theme)
 local cfg = {
     boostOn = false, boostPwr = 100, boostBind = "B",
     autoCatchOn = false, autoCatchRng = 12, catchBind = "C",
-    -- Hitbox Config
     headOn = false, headScl = 2.5, headTrans = 0.5, headBind = "H",
-    -- Sticky Config
     stickyOn = false, 
     stickyMaxTime = 0.3, 
     stickySmooth = 0.35,
     stickyBind = "V",
-    -- Rocket/Fling
     flingOn = false, flingPwr = 125, flingBind = "X",
-    -- Stamina
     infStaminaOn = false,
-    -- Misc
     gravOn = false, gravVal = 196.2, gravBind = "G",
     perfOn = false, greyOn = false,
     uiToggleKey = "Insert",
-    accent = Color3.fromRGB(0, 255, 150),
-    bg = Color3.fromRGB(12, 12, 12),
-    sec = Color3.fromRGB(25, 25, 25)
+    
+    -- COLOR PALETTE
+    accent = Color3.fromRGB(230, 80, 150), -- Soft Hot Pink
+    bg = Color3.fromRGB(255, 245, 250),     -- Very Light Blush/White
+    sec = Color3.fromRGB(255, 255, 255),    -- Pure White
+    text = Color3.fromRGB(80, 60, 70)       -- Deep Mauve (Darker than black for soft look)
 }
 
 local function save()
@@ -58,14 +56,16 @@ main.Size = UDim2.new(0, 500, 0, 420)
 main.Position = UDim2.new(0.5, -250, 0.5, -210)
 main.BackgroundColor3 = cfg.bg
 main.Active = true; main.Draggable = true
-Instance.new("UICorner", main)
-Instance.new("UIStroke", main).Color = cfg.accent
+Instance.new("UICorner", main).CornerRadius = UDim.new(0, 10)
+local mainStroke = Instance.new("UIStroke", main)
+mainStroke.Color = cfg.accent
+mainStroke.Thickness = 2
 
 local sidebar = Instance.new("Frame", main)
 sidebar.Size = UDim2.new(0, 120, 1, -10)
 sidebar.Position = UDim2.new(0, 5, 0, 5)
-sidebar.BackgroundColor3 = Color3.fromRGB(8, 8, 8)
-Instance.new("UICorner", sidebar)
+sidebar.BackgroundColor3 = Color3.fromRGB(255, 230, 240) -- Subtle Pink Sidebar
+Instance.new("UICorner", sidebar).CornerRadius = UDim.new(0, 8)
 Instance.new("UIListLayout", sidebar)
 
 local container = Instance.new("Frame", main)
@@ -77,17 +77,18 @@ local pages, tabs = {}, {}
 local function createTab(name)
     local b = Instance.new("TextButton", sidebar)
     b.Size = UDim2.new(1, 0, 0, 32); b.BackgroundTransparency = 1
-    b.Text = name:upper(); b.TextColor3 = Color3.new(0.5, 0.5, 0.5)
+    b.Text = name:upper(); b.TextColor3 = Color3.fromRGB(150, 120, 130)
     b.Font = Enum.Font.GothamBold; b.TextSize = 10
 
     local p = Instance.new("ScrollingFrame", container)
     p.Size = UDim2.new(1, 0, 1, 0); p.BackgroundTransparency = 1; p.Visible = false
-    p.ScrollBarThickness = 0; p.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    p.ScrollBarThickness = 2; p.ScrollBarImageColor3 = cfg.accent
+    p.AutomaticCanvasSize = Enum.AutomaticSize.Y
     Instance.new("UIListLayout", p).Padding = UDim.new(0, 5)
 
     b.MouseButton1Click:Connect(function()
         for _, pg in pairs(pages) do pg.Visible = false end
-        for _, tb in pairs(tabs) do tb.TextColor3 = Color3.new(0.5, 0.5, 0.5) end
+        for _, tb in pairs(tabs) do tb.TextColor3 = Color3.fromRGB(150, 120, 130) end
         p.Visible = true; b.TextColor3 = cfg.accent
     end)
     tabs[name] = b; pages[name] = p
@@ -100,14 +101,16 @@ local function updateToggleVisual(var)
         local b = toggleButtons[var].Btn
         local txt = toggleButtons[var].Txt
         b.Text = txt .. ": " .. (cfg[var] and "ON" or "OFF")
-        b.TextColor3 = cfg[var] and cfg.accent or Color3.new(1,1,1)
+        b.TextColor3 = cfg[var] and cfg.accent or cfg.text
+        b.BackgroundColor3 = cfg[var] and Color3.fromRGB(255, 240, 245) or cfg.sec
     end
 end
 
 local function addToggle(p, txt, var)
     local b = Instance.new("TextButton", p)
     b.Size = UDim2.new(1, -5, 0, 35); b.BackgroundColor3 = cfg.sec
-    b.Font = Enum.Font.Gotham; Instance.new("UICorner", b)
+    b.Font = Enum.Font.GothamMedium; b.TextSize = 13; Instance.new("UICorner", b)
+    local s = Instance.new("UIStroke", b); s.Color = cfg.accent; s.Transparency = 0.8
     toggleButtons[var] = {Btn = b, Txt = txt}
     updateToggleVisual(var)
 
@@ -120,12 +123,12 @@ end
 
 local function addBind(p, txt, var)
     local b = Instance.new("TextButton", p)
-    b.Size = UDim2.new(1, -5, 0, 30); b.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    b.Size = UDim2.new(1, -5, 0, 30); b.BackgroundColor3 = Color3.fromRGB(245, 245, 245)
     b.Text = txt .. " Bind: [" .. cfg[var] .. "]"; b.TextColor3 = cfg.accent
     b.Font = Enum.Font.GothamBold; b.TextSize = 12; Instance.new("UICorner", b)
 
     b.MouseButton1Click:Connect(function()
-        b.Text = "PRESS KEY OR BUTTON..."; b.TextColor3 = Color3.new(1, 1, 1)
+        b.Text = "..."; b.TextColor3 = cfg.text
         local connection; connection = UIS.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.Keyboard or input.UserInputType == Enum.UserInputType.Gamepad1 then
                 cfg[var] = input.KeyCode.Name
@@ -141,8 +144,9 @@ end
 local function addInput(p, ph, var, min, max)
     local i = Instance.new("TextBox", p)
     i.Size = UDim2.new(1, -5, 0, 35); i.BackgroundColor3 = cfg.sec
-    i.Text = tostring(cfg[var]); i.PlaceholderText = ph; i.TextColor3 = Color3.new(1,1,1)
+    i.Text = tostring(cfg[var]); i.PlaceholderText = ph; i.TextColor3 = cfg.text
     i.Font = Enum.Font.Gotham; Instance.new("UICorner", i)
+    local s = Instance.new("UIStroke", i); s.Color = cfg.accent; s.Transparency = 0.9
     i.FocusLost:Connect(function() 
         local val = tonumber(i.Text)
         if val then
@@ -209,20 +213,17 @@ RunService.Heartbeat:Connect(function()
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
 
-    -- VISUALS
     if cfg.greyOn then
         for _, sky in pairs(Lighting:GetChildren()) do if sky:IsA("Sky") then sky:Destroy() end end
         Lighting.EnvironmentDiffuseScale = 0; Lighting.EnvironmentSpecularScale = 0
     end
 
-    -- STAMINA
     if cfg.infStaminaOn then
         local s = char:FindFirstChild("Stamina") or player:FindFirstChild("Stamina")
         if s and (s:IsA("NumberValue") or s:IsA("IntValue")) then s.Value = 100 end
         if char:GetAttribute("Stamina") then char:SetAttribute("Stamina", 100) end
     end
 
-    -- STICKY LOGIC
     if cfg.stickyOn and not stickyCooldown then
         if not stickTarget then
             for _, op in pairs(game.Players:GetPlayers()) do
@@ -243,18 +244,16 @@ RunService.Heartbeat:Connect(function()
         end
     else stickTarget = nil end
 
-    -- SOLID HITBOX LOGIC
     for _, op in pairs(game.Players:GetPlayers()) do
         if op ~= player and op.Character and op.Character:FindFirstChild("Head") then
             local h = op.Character.Head
             if cfg.headOn then
                 h.Size = Vector3.new(cfg.headScl, cfg.headScl, cfg.headScl)
                 h.Transparency = cfg.headTrans
-                h.CanCollide = true -- FORCING COLLISION
-                h.CanTouch = true   -- FORCING TOUCH DETECTION
-                h.Massless = true   -- PREVENT TRIPPING
+                h.CanCollide = true 
+                h.CanTouch = true  
+                h.Massless = true  
             else
-                -- RESET TO NORMAL
                 h.Size = Vector3.new(1.2, 1.2, 1.2)
                 h.Transparency = 0
             end
