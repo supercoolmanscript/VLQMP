@@ -18,8 +18,13 @@ local cfg = {
     autoCatchOn = false, autoCatchRng = 12, catchBind = "C",
     headOn = false, headScl = 2.5, headTrans = 0.5, headBind = "H",
     stickyOn = false, stickyMaxTime = 0.3, stickySmooth = 0.35, stickyBind = "V",
+    -- Rocket (Fling)
     flingOn = false, flingPwr = 125, flingBind = "X",
+    -- Speed
     speedOn = false, speedVal = 22, speedBind = "Z",
+    -- Gravity
+    gravOn = false, gravVal = 196.2, gravBind = "G",
+    -- Misc
     infStaminaOn = false, fflagsOn = false, greyOn = false,
     uiToggleKey = "Insert",
     accent = Color3.fromRGB(230, 80, 150),
@@ -126,12 +131,22 @@ local tSpeed = createTab("Speed")
 addToggle(tSpeed, "Enable Speed Hack", "speedOn")
 addInput(tSpeed, "Value", "speedVal")
 
+local tRocket = createTab("Rocket")
+addToggle(tRocket, "Rocket Fling", "flingOn")
+addInput(tRocket, "Fling Power", "flingPwr")
+
+local tGrav = createTab("Gravity")
+addToggle(tGrav, "Enable Custom Gravity", "gravOn")
+addInput(tGrav, "Gravity Value", "gravVal")
+
 local tBinds = createTab("Binds")
 addBind(tBinds, "UI", "uiToggleKey")
 addBind(tBinds, "Hitbox", "headBind")
 addBind(tBinds, "Sticky", "stickyBind")
 addBind(tBinds, "Boost", "boostBind")
 addBind(tBinds, "Speed", "speedBind")
+addBind(tBinds, "Rocket", "flingBind")
+addBind(tBinds, "Gravity", "gravBind")
 
 local tFFlag = createTab("FFlags")
 local fBtn = Instance.new("TextButton", tFFlag)
@@ -157,12 +172,15 @@ RunService.Heartbeat:Connect(function()
     -- SPEED
     if cfg.speedOn and hum then hum.WalkSpeed = tonumber(cfg.speedVal) or 16 end
 
-    -- AUTO BOOST (V64 Logic)
+    -- GRAVITY
+    workspace.Gravity = cfg.gravOn and tonumber(cfg.gravVal) or 196.2
+
+    -- AUTO BOOST
     if cfg.boostOn and hrp and hum.MoveDirection.Magnitude > 0 then
         hrp.Velocity = hrp.Velocity + (hum.MoveDirection * (cfg.boostPwr / 25))
     end
 
-    -- STICKY HEAD (V64 Logic)
+    -- STICKY HEAD
     if cfg.stickyOn and hrp then
         if not stickTarget then
             for _, op in pairs(game.Players:GetPlayers()) do
@@ -203,4 +221,13 @@ UIS.InputBegan:Connect(function(i, gp)
     if key == cfg.headBind then cfg.headOn = not cfg.headOn; updateToggleVisual("headOn") end
     if key == cfg.stickyBind then cfg.stickyOn = not cfg.stickyOn; updateToggleVisual("stickyOn") end
     if key == cfg.boostBind then cfg.boostOn = not cfg.boostOn; updateToggleVisual("boostOn") end
+    if key == cfg.gravBind then cfg.gravOn = not cfg.gravOn; updateToggleVisual("gravOn") end
+    
+    -- Rocket Keybind Action
+    if key == cfg.flingBind and cfg.flingOn then
+        local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.Velocity = hrp.CFrame.LookVector * (tonumber(cfg.flingPwr) or 125)
+        end
+    end
 end)
