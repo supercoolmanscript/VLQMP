@@ -178,9 +178,9 @@ addBind(tSpeed, "Speed", "speedBind")
 addInput(tSpeed, "WalkSpeed Value", "speedVal")
 
 local tBoost = createTab("Boost")
-addToggle(tBoost, "Auto Head-Boost", "boostOn")
+addToggle(tBoost, "Constant Head-Boost", "boostOn")
 addBind(tBoost, "Boost", "boostBind")
-addInput(tBoost, "Boost Power", "boostPwr")
+addInput(tBoost, "Boost Power (Height)", "boostPwr")
 
 local tCatch = createTab("Catch")
 addToggle(tCatch, "Auto Catch Spam", "autoCatchOn")
@@ -231,7 +231,25 @@ RunService.Heartbeat:Connect(function()
     end
 
     if hrp then
-        -- STICKY HEAD LOGIC (Standing on Head)
+        -- FIXED CONSTANT AUTO BOOST LOGIC (SCALED)
+        if cfg.boostOn then
+            local currentHeadSize = cfg.headOn and tonumber(cfg.headScl) or 1.2
+            local triggerDist = (currentHeadSize / 2) + 2.8 
+
+            for _, op in pairs(game.Players:GetPlayers()) do
+                if op ~= player and op.Character and op.Character:FindFirstChild("Head") then
+                    local targetHead = op.Character.Head
+                    local dist = (hrp.Position - targetHead.Position).Magnitude
+                    
+                    if dist < triggerDist and hrp.Position.Y > targetHead.Position.Y then
+                        -- Sets velocity directly to the input value for a consistent height every time
+                        hrp.Velocity = Vector3.new(hrp.Velocity.X, tonumber(cfg.boostPwr) or 100, hrp.Velocity.Z)
+                    end
+                end
+            end
+        end
+
+        -- STICKY HEAD LOGIC
         if cfg.stickyOn and not stickyCooldown then
             if not stickTarget then
                 for _, op in pairs(game.Players:GetPlayers()) do
